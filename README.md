@@ -2,7 +2,7 @@
 
 [Read the guide](https://fcw1987.github.io/hypha-source/) · [Open the official Hypha app](https://hypha.franklinwaggoner.chatgpt.site/)
 
-This release contains the reviewed **v18 player and director guide**: static HTML and CSS for small-group play, club events, scoring, standings and partnerships. The examples are fictional or hypothetical.
+This release contains the reviewed **v19 player and director guide**: static HTML and CSS for small-group play, club events, tournaments, seeding, tiebreaks, practice, scoring, standings and partnerships. The examples are fictional or hypothetical.
 
 Despite the repository name, this is a documentation showcase. It contains no application source snapshot, executable app runtime, private repository history, credentials or real group records. The official app is maintained separately.
 
@@ -15,7 +15,7 @@ Despite the repository name, this is a documentation showcase. It contains no ap
 
 The GitHub Pages publishing source is `main:/docs`. Open `docs/index.html` locally to read the same guide. It has no scripts, forms or data connection.
 
-The three guide files are unchanged from the reviewed `Hypha-club-guide-v18.zip` package, whose SHA-256 is `da9adeb79a97fed392222046b951ea54f951d4c24809882c236d83afe1193a87`.
+The three guide files are unchanged from the reviewed `Hypha-v19-guide.zip` package, whose SHA-256 is `9ea1f69861283d71861f0a4e5d67359351cd8ea4e681b6bd3a44f67c2ca3ff01`.
 
 ## Rights
 
