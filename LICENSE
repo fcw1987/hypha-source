@@ -1,36 +1,34 @@
 Hypha source-viewing license
 
 All rights reserved by the respective copyright holders of the original Hypha
-material. This notice covers only their original contributions to the Hypha
-application, branding and documentation, to the extent those contributions
-are protected by copyright.
+material. This notice applies to original contributions to Hypha's source
+code and documentation, to the extent they are protected by copyright.
 
-You may inspect the original Hypha source made available to you. You may view
-the published guide and use the official hosted Hypha service through the
-access granted to you there. Access to this repository grants no access to
-any Hypha workspace or thread.
+You may inspect the original Hypha source made available to you. You may
+read the published player guide and use the official hosted Hypha service
+through the access granted to you there. Access to the source grants no
+access to any workspace or thread.
 
 Except as separately authorized by the applicable rights holder, permitted
 by applicable law, or permitted through GitHub under its applicable terms,
 this notice grants no permission to execute or deploy an independent copy,
-modify or create derivative works, reuse the material in another work,
-redistribute or sublicense it. This applies to commercial and noncommercial
-activities alike. This is not an open-source license.
+modify or create derivative works, reuse this material in another work,
+redistribute it or sublicense it. This applies to both commercial and
+noncommercial activities. This is not an open-source license.
 
 GitHub's platform rights are unaffected. If the repository is public,
 GitHub users retain the rights its Terms of Service give them to view and
 fork it and to use GitHub's supported functionality through the service.
-Those terms also govern GitHub's own platform rights. This notice does not
-expand those grants into permission for use outside the service.
+Those terms also govern GitHub's own platform rights. This notice does
+not expand those grants into permission for use outside the service.
 
 The repository is offered for inspection. This notice does not invite
 collaboration or grant permission to prepare or submit code contributions.
 
-Third-party software, fonts, icons, starter material and other upstream
-works remain subject to their respective terms. Their owners retain their
-rights. This notice neither claims ownership of those works nor restricts
-rights already granted by their licenses or by law. See THIRD_PARTY_NOTICES.md
-and the notices accompanying the individual files and packages.
+No exclusive claim is made here to the rules of play, facts, ideas or
+methods as such. References to third-party software or services do not
+claim ownership of them. Third parties retain their rights, and this
+notice does not curtail rights already granted by their licenses or by law.
 
-Official app: https://hypha.franklinwaggoner.chatgpt.site/
-GitHub Terms of Service: https://docs.github.com/en/site-policy/github-terms/github-terms-of-service
+GitHub Terms of Service:
+https://docs.github.com/en/site-policy/github-terms/github-terms-of-service
