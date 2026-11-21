@@ -4,19 +4,19 @@ Hypha keeps pickleball scores for one game or a season. Players join private thr
 
 [Open the official app](https://hypha.franklinwaggoner.chatgpt.site/) · [Read the guide](https://fcw1987.github.io/hypha-source/) · [Browse the guide source](docs/index.html)
 
-## Explore a season
+## Explore example threads
 
-After unlocking the app, open **Example season**. The Lantern League is a fictional group that played 96 games over 11 nights. **Stats → Explore this pair** shows how Pip Moonfern and Bea Brightwing went 21–11 together. All 32 of their games were against the same opposing pair. The guide walks through the final game, when Bea and Pip entered tied at 882 and Bea finished three points ahead.
+After unlocking the app, open **Example threads** in the sidebar or mobile thread drawer. The fictional, read-only examples include the 48-player **Firefly Mixer** and **Skybridge Ladder**, plus tournament, practice and season examples. Choose **Lantern League** for a season with 96 games over 11 nights. **Stats → Explore this pair** shows how Pip Moonfern and Bea Brightwing went 21–11 together. All 32 of their games were against the same opposing pair. The guide walks through the final game, when Bea and Pip entered tied at 882 and Bea finished three points ahead.
 
 ## Choose an activity
 
-Open **New Thread** for **Quick play**, **Round robin**, **Ladder** or **Tournament**. A secondary **Practice log** can start with one player. Scheduled events support singles and doubles, score-based or timed finals, and court or flight assignments. A tournament can qualify entrants from round-robin pools or draw a knockout from supplied seeds. Practice measures stay in the thread and separate from its match standings.
+Open **New Thread** for **Log a session**, **Round robin**, **Ladder** or **Tournament**. A secondary **Practice log** can start with one player. Scheduled events support singles and doubles, score-based or timed finals, and court or flight assignments. A tournament can qualify entrants from round-robin pools or draw a knockout from supplied seeds. Practice measures stay in the thread and separate from its match standings.
 
 The [guide](docs/index.html#activities) includes a four-player rotation, a 16-player fixed-team tournament, and a counted practice set. It explains the recreational pool tiebreaks, [withdrawal and restoration before the playoffs](docs/index.html#tournament-withdrawal), and how a published stage affects later score corrections.
 
 ## Read the source
 
-This is a source-viewing selection from Hypha v20. It contains the following parts of the application.
+The guide describes live Hypha v22. The source-viewing selection remains an older Hypha v20 snapshot and has not been updated to v22. It contains the following parts of the application.
 
 | Question | Start here |
 | --- | --- |
