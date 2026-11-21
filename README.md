@@ -12,7 +12,7 @@ After unlocking the app, open **Example season**. The Lantern League is a fictio
 
 Open **New Thread** for **Quick play**, **Round robin**, **Ladder** or **Tournament**. A secondary **Practice log** can start with one player. Scheduled events support singles and doubles, score-based or timed finals, and court or flight assignments. A tournament can qualify entrants from round-robin pools or draw a knockout from supplied seeds. Practice measures stay in the thread and separate from its match standings.
 
-The [guide](docs/index.html#activities) includes a four-player rotation, 32 players on eight courts, a 16-player fixed-team tournament, and a counted practice set. It explains the recreational pool tiebreaks, [withdrawal and restoration before the playoffs](docs/index.html#tournament-withdrawal), and how a published stage affects later score corrections.
+The [guide](docs/index.html#activities) includes a four-player rotation, a 16-player fixed-team tournament, and a counted practice set. It explains the recreational pool tiebreaks, [withdrawal and restoration before the playoffs](docs/index.html#tournament-withdrawal), and how a published stage affects later score corrections.
 
 ## Read the source
 
