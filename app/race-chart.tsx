@@ -194,7 +194,7 @@ export function RaceChart({
           fill="#f7faf6"
         />
         {steps.map((step, i) => {
-          if (step.state !== "pending" && step.state !== "unplayed")
+          if (step.state !== "pending" && step.state !== "unplayed" && step.state !== "void")
             return null;
           const a = Math.max(left, x(i) - gapWidth * 0.35),
             b = Math.min(right, x(i) + gapWidth * 0.35);

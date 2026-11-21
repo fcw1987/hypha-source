@@ -1,5 +1,5 @@
 import type { ClubState } from "./club-options.ts";
-import { guardTournamentScore, tournamentPhase } from "./tournament.ts";
+import { guardTournamentScore, tournamentGameStatus, tournamentPhase } from "./tournament.ts";
 import type { PracticeEntry } from "./practice.ts";
 
 export interface Rules {
@@ -334,6 +334,9 @@ export function raceFinish(book: Book): Finish | null {
   }
   return null;
 }
+function requiredGamesScored(session: Session) {
+  return session.games.every(game => game.score || tournamentGameStatus(session, game) === "void");
+}
 export function closed(
   book: Book,
   index: number,
@@ -342,7 +345,7 @@ export function closed(
   const s = book.sessions[index];
   return (
     s.submitted &&
-    ((!s.paused && s.games.every((g) => g.score)) ||
+    ((!s.paused && requiredGamesScored(s)) ||
       (s.format !== "fixed" && !!finish && finish.session <= index))
   );
 }
@@ -415,6 +418,7 @@ export function record(
         (g) =>
           g.started &&
           !g.score &&
+          tournamentGameStatus(session, g) !== "void" &&
           !seen.has(g.id) &&
           (g.court === game.court ||
             [...g.a, ...g.b].some((p) => ids.includes(p))),
@@ -439,7 +443,7 @@ export function record(
       "Finish the playoff final and any bronze game before submitting the tournament.", 409);
     const finish = raceFinish(book);
     insist(
-      (!session.paused && session.games.every((g) => g.score)) ||
+      (!session.paused && requiredGamesScored(session)) ||
         (session.format !== "fixed" && finish && finish.session <= index),
       "Enter every game before submitting, or finish the race in a fully scored round.",
     );

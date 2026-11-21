@@ -10,6 +10,7 @@ import {
 } from "./scorebook.ts";
 import type { Book, Game, Session } from "./scorebook.ts";
 import { resolvePlayers, schedule } from "./rotation.ts";
+import { tournamentGameStatus, tournamentPoolDispositions, tournamentWithdrawnPlayers } from "./tournament.ts";
 import { fixedDraw, fixedTeamsPlaying } from "./fixed-teams.ts";
 export const onCourt = (g: Game) => [...g.a, ...g.b];
 export function findSession(book: Book, id: unknown) {
@@ -18,7 +19,7 @@ export function findSession(book: Book, id: unknown) {
   return session;
 }
 export function waitingFor(s: Session, g: Game) {
-  if (g.score || g.started) return [];
+  if (g.score || g.started || tournamentGameStatus(s, g) === "void") return [];
   const players = onCourt(g),
     at = s.games.indexOf(g);
   return s.games.filter(
@@ -27,13 +28,15 @@ export function waitingFor(s: Session, g: Game) {
       !other.score &&
       (other.started || index < at) &&
       (other.court === g.court ||
-        onCourt(other).some((p) => players.includes(p))),
+        onCourt(other).some((p) => players.includes(p))) &&
+      tournamentGameStatus(s, other) !== "void",
   );
 }
 export function courtBoard(s: Session) {
+  const dispositions = tournamentPoolDispositions(s);
   return Array.from({ length: s.courts }, (_, i) => {
     const court = i + 1,
-      pending = s.games.filter((g) => g.court === court && !g.score);
+      pending = s.games.filter((g) => g.court === court && !g.score && dispositions.get(g.id) !== "void");
     const current = pending.find((g) => g.started) ?? pending[0];
     const next = pending.find((g) => g !== current);
     return {
@@ -56,6 +59,7 @@ export function startGame(book: Book, s: Session, id: unknown) {
     "This game is no longer available to start.",
     409,
   );
+  insist(tournamentGameStatus(s, game) !== "void", "This pool game is void after a withdrawal.", 409);
   if (game.started) return;
   insist(
     !waitingFor(s, game).length,
@@ -68,7 +72,8 @@ export function byes(s: Session, round: number) {
   const assigned = new Set(
     s.games.filter((g) => g.round === round).flatMap(onCourt),
   );
-  return eligibleAt(s, round).filter((id) => !assigned.has(id));
+  const withdrawn = tournamentWithdrawnPlayers(s);
+  return eligibleAt(s, round).filter((id) => !assigned.has(id) && !withdrawn.has(id));
 }
 export interface AttendanceChange {
   names: string[];

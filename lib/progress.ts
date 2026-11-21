@@ -7,10 +7,13 @@ import {
   people,
   eligibleAt,
 } from "./scorebook.ts";
+import { tournamentPoolDispositions, tournamentWithdrawnPlayers } from "./tournament.ts";
 import type { Book, Game, Player, Session } from "./scorebook.ts";
 
 export type Scope = "session" | "season";
 type Activity =
+  | "void"
+  | "withdrawn"
   | "played"
   | "bye"
   | "another court"
@@ -27,7 +30,7 @@ export interface Reading {
 export interface Checkpoint {
   label: string;
   detail: string;
-  state: "saved" | "partial" | "pending" | "unplayed";
+  state: "saved" | "partial" | "pending" | "unplayed" | "excluded" | "void";
   corrected: number;
   readings: Map<string, Reading>;
 }
@@ -57,20 +60,42 @@ export function roundCourts(games: Game[]) {
   return byRound;
 }
 
+export function progressSaveSummary(session: Session, dispositions = tournamentPoolDispositions(session)) {
+  let voids = 0, excluded = 0;
+  for (const status of dispositions.values()) {
+    if (status === "void") voids++;
+    else excluded++;
+  }
+  const saved = session.games.filter(g => g.score).length;
+  return saved + " of " + (session.games.length - voids) + " games saved" +
+    (voids ? " · " + voids + " void" : "") +
+    (excluded ? " · " + excluded + " saved " + (excluded === 1 ? "final" : "finals") + " excluded from pool standings" : "");
+}
+
 export function sessionProgress(
   book: Book,
   session: Session,
   players: Player[],
 ): Progress {
   const ledger = playerEntries(sessionPlayers(book, session));
-  const byRound = roundCourts(session.games);
+  const dispositions = tournamentPoolDispositions(session);
+  const withdrawn = tournamentWithdrawnPlayers(session);
+  const activeGames = dispositions.size ? session.games.filter(g => dispositions.get(g.id) !== "void") : session.games;
+  const byRound = roundCourts(activeGames);
+  const canceled = roundCourts(dispositions.size ? session.games.filter(g => dispositions.get(g.id) === "void") : []);
+  const lastPlayed = new Map<string, number>();
+  if (withdrawn.size) for (const game of activeGames) {
+    if (!game.score) continue;
+    for (const id of [...game.a, ...game.b]) if (withdrawn.has(id))
+      lastPlayed.set(id, Math.max(lastPlayed.get(id) ?? 0, game.round));
+  }
   const complete = closed(book, book.sessions.indexOf(session));
   let saved = 0,
     pending = 0;
   const arrived = new Set<string>();
   const steps = session.games.map((g, i): Checkpoint => {
     for (const id of eligibleAt(session, g.round)) arrived.add(id);
-    const state = g.score ? "saved" : complete ? "unplayed" : "pending";
+    const state = dispositions.get(g.id) ?? (g.score ? "saved" : complete ? "unplayed" : "pending");
     if (g.score) {
       if (session.format === "fixed") creditTeams(ledger, session, g);
       else creditGame(ledger, g);
@@ -86,20 +111,19 @@ export function sessionProgress(
       const assignedCourt = byRound.get(g.round)?.get(id);
       const side = g.a.includes(id) ? 0 : g.b.includes(id) ? 1 : null;
       let activity: Activity;
-      if (state === "unplayed") activity = "unplayed";
+      if (state === "void") activity = "void";
+      else if (state === "unplayed") activity = "unplayed";
+      else if (side === null && withdrawn.has(id) && g.round > (lastPlayed.get(id) ?? 0)) activity = "withdrawn";
+      else if (assignedCourt === undefined && canceled.get(g.round)?.has(id)) activity = "void";
       else if (!eligibleAt(session, g.round).includes(id))
         activity = "did not attend";
       else if (assignedCourt === undefined) activity = "bye";
       else if (assignedCourt !== g.court) activity = "another court";
       else activity = g.score ? "played" : "pending";
+      const measured = arrived.has(id) && activity !== "void" && activity !== "withdrawn";
       readings.set(p.id, {
-        total: g.score && arrived.has(id) ? ledger.get(p.id)!.points : null,
-        earned:
-          g.score && arrived.has(id)
-            ? side === null
-              ? 0
-              : g.score[side]
-            : null,
+        total: g.score && measured ? ledger.get(p.id)!.points : null,
+        earned: g.score && measured ? side === null ? 0 : g.score[side] : null,
         activity,
         corrected: !!g.correctedFrom && side !== null,
       });
@@ -107,6 +131,7 @@ export function sessionProgress(
     const detail = [
       session.courts > 1 ? "R" + g.round + " · Court " + g.court : "",
       g.score?.join("–"),
+      state === "void" ? "Void after pool withdrawal" : state === "excluded" ? "Excluded from pool standings" : "",
       g.correctedFrom ? "Previously " + g.correctedFrom.join("–") : "",
     ]
       .filter(Boolean)
@@ -145,13 +170,19 @@ export function seasonProgress(book: Book, players: Player[]): Progress {
   const steps = rotating.map((s): Checkpoint => {
     const i = book.sessions.indexOf(s);
     const roster = new Set(s.roster);
+    const dispositions = tournamentPoolDispositions(s);
+    const actual = dispositions.size ? s.games.filter(g => dispositions.get(g.id) !== "void") : s.games;
+    const withdrawn = tournamentWithdrawnPlayers(s);
+    const canceled = new Set<string>();
+    if (dispositions.size) for (const game of s.games)
+      if (dispositions.get(game.id) === "void") for (const id of [...game.a, ...game.b]) canceled.add(id);
     const before = new Map(
       players.map((p) => [p.id, { ...ledger.get(p.id)! }]),
     );
     let saved = 0,
       corrected = 0;
     const revised = new Set<string>();
-    for (const g of s.games) {
+    for (const g of actual) {
       if (!g.score) continue;
       creditGame(ledger, g);
       saved++;
@@ -163,40 +194,42 @@ export function seasonProgress(book: Book, players: Player[]): Progress {
     any ||= saved > 0;
     for (const id of s.roster) attended.add(id);
     const complete = closed(book, i, finish);
-    const state = !saved
+    const state = s.games.length > 0 && !actual.length ? "void" : !saved
       ? complete
         ? "unplayed"
         : "pending"
-      : saved === s.games.length || complete
+      : saved === actual.length || complete
         ? "saved"
         : "partial";
     if (state === "pending" || state === "partial")
-      pending += s.games.length - saved;
+      pending += actual.length - saved;
     const readings = new Map<string, Reading>();
     for (const p of players) {
       const current = ledger.get(p.id)!,
         last = before.get(p.id)!;
       const played = current.played > last.played;
-      const scheduled = s.games.some(
+      const scheduled = actual.some(
         (g) => g.a.includes(p.id) || g.b.includes(p.id),
       );
       const awaiting =
         roster.has(p.id) &&
         !played &&
         !complete &&
-        s.games.some(
+        actual.some(
           (g) => !g.score && (g.a.includes(p.id) || g.b.includes(p.id)),
         );
       const activity: Activity = !roster.has(p.id)
         ? "did not attend"
         : played
           ? "played"
+          : withdrawn.has(p.id) ? "withdrawn"
+          : !scheduled && canceled.has(p.id) ? "void"
           : awaiting
             ? "pending"
             : !scheduled
               ? "bye"
               : "no games played";
-      const known = saved > 0 && attended.has(p.id) && !awaiting;
+      const known = saved > 0 && attended.has(p.id) && !awaiting && activity !== "void" && activity !== "withdrawn";
       readings.set(p.id, {
         total: known ? current.points : null,
         earned: known ? current.points - last.points : null,
@@ -206,7 +239,7 @@ export function seasonProgress(book: Book, players: Player[]): Progress {
     }
     return {
       label: "Session " + (i + 1),
-      detail: s.date + " · " + saved + "/" + s.games.length + " saved",
+      detail: dispositions.size ? s.date + " · " + progressSaveSummary(s, dispositions) : s.date + " · " + saved + "/" + s.games.length + " saved",
       state,
       corrected,
       readings,
@@ -265,7 +298,7 @@ export interface RacePoint {
 export function racePoints(data: Progress): (RacePoint | null)[] {
   const saved = new Map([...data.baseline].map((id) => [id, 0]));
   return data.steps.map((step) => {
-    if (step.state === "pending" || step.state === "unplayed") return null;
+    if (step.state === "pending" || step.state === "unplayed" || step.state === "void") return null;
     for (const [id, reading] of step.readings)
       if (reading.total !== null) saved.set(id, reading.total);
     if (!saved.size) return null;

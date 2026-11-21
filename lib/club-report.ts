@@ -1,7 +1,7 @@
-import { eligibleAt, pairLabel, people, teamFor } from "./scorebook.ts";
+import { eligibleAt, pairLabel, people } from "./scorebook.ts";
 import type { Book, Game, Session, Side } from "./scorebook.ts";
 import type { ClubBoxBlock } from "./club-box.ts";
-import { tournamentWavePlayers } from "./tournament.ts";
+import { tournamentPoolDispositions, tournamentWavePlayers, tournamentWithdrawnPlayers } from "./tournament.ts";
 import { formatOf, pairKey, threadStats } from "./thread-stats.ts";
 
 interface Wave {
@@ -46,6 +46,8 @@ export function clubReport(book: Book, session: Session) {
     const byPlayer = playerFlights(session, block);
     for (let wave = block.firstRound; wave <= block.lastRound; wave++) flightByWave.set(wave, byPlayer);
   }
+  const dispositions = tournamentPoolDispositions(session);
+  const withdrawn = tournamentWithdrawnPlayers(session);
   let usedCourts = 0;
 
   for (const game of session.games) {
@@ -62,7 +64,7 @@ export function clubReport(book: Book, session: Session) {
     const ids = [...game.a, ...game.b];
     // A cancelled assignment does not become a bye for the people on its court.
     for (const id of ids) wave.assigned.add(id);
-    if ("voided" in game && game.voided === true) continue;
+    if (dispositions.get(game.id) === "void" || ("voided" in game && game.voided === true)) continue;
     wave.activeGames++;
     if (confirmed.has(game.id)) wave.finals++;
     if (game.a.length !== width || game.b.length !== width ||
@@ -83,7 +85,7 @@ export function clubReport(book: Book, session: Session) {
   const ordered = [...waves.values()].sort((a, b) => a.number - b.number);
   for (const games of appearances.values()) games.sort((a, b) =>
     a.game.round - b.game.round || a.game.court - b.game.court);
-  return { session, players, names, confirmed, appearances, waves: ordered, usedCourts, flightByWave };
+  return { session, players, names, confirmed, appearances, waves: ordered, usedCourts, flightByWave, dispositions, withdrawn };
 }
 
 type Report = ReturnType<typeof clubReport>;
@@ -96,6 +98,7 @@ export interface SavedAppearance {
   pointsFor: number;
   pointsAgainst: number;
   won: boolean;
+  excluded?: true;
 }
 
 function opponentKeys(side: Side, fixed: boolean) {
@@ -105,6 +108,7 @@ function opponentKeys(side: Side, fixed: boolean) {
 
 function assignment(report: Report, id: string, appearances: Appearance[]) {
   const session = report.session;
+  if (report.withdrawn.has(id)) return { status: "Withdrawn from pool play" };
   if (session.submitted) return { status: "Session submitted" };
   if (!report.waves.length) return { status: "Draw pending" };
 
@@ -159,6 +163,7 @@ export function clubPlayerReport(report: Report, id: string) {
       partner: partner ? names.get(partner) ?? null : null,
       opposition: pairLabel(session, opponents, names),
       pointsFor: scored, pointsAgainst: allowed, won,
+      ...(report.dispositions.get(game.id) === "excluded" ? { excluded: true as const } : {}),
     });
   }
   const box = session.club?.draw === "box";
@@ -166,7 +171,12 @@ export function clubPlayerReport(report: Report, id: string) {
   const latest = session.club?.boxes?.at(-1);
   const number = latest && report.flightByWave.get(latest.firstRound)?.get(id);
   const flight = latest && number !== undefined ? { number, block: latest.number } : undefined;
+  // Current withdrawal has no historical timestamp. Later waves cannot prove
+  // a wait for someone whose last confirmed appearance is already in the past.
+  const withdrawn = report.withdrawn.has(id);
+  const lastPlayed = saved.at(-1)?.round ?? 0;
   const waits = report.waves.filter(wave => {
+    if (withdrawn && wave.number > lastPlayed) return false;
     if (!wave.activeGames || wave.activeGames !== wave.finals ||
         !wave.eligible.has(id) || wave.assigned.has(id)) return false;
     if (wave.knockout) return wave.knockout.has(id);
@@ -177,11 +187,9 @@ export function clubPlayerReport(report: Report, id: string) {
     return pool === undefined || wave.pools.has(pool);
   }).length;
   const difference = pointsFor - pointsAgainst;
-  const team = fixed && appearances[0]
-    ? teamFor(session, appearances[0].side === 0 ? appearances[0].game.a : appearances[0].game.b)
-    : undefined;
+  const team = fixed ? session.teams?.find(t => t.pair.includes(id)) : undefined;
   return {
-    name: names.get(id) ?? "Player", teamName: team?.name, pool, flight,
+    name: names.get(id) ?? "Player", teamName: team?.name, pool, flight, withdrawn,
     games: saved.length, wins, losses: saved.length - wins, pointsFor, pointsAgainst,
     difference, perGame: saved.length ? difference / saved.length : null,
     highestCourt, waits, partners: partners.size, faced: rivalsFaced.size,

@@ -1,6 +1,6 @@
 import { exampleId, formatLabel, gameRuleLabel, pairLabel, people, standings } from "./scorebook.ts";
 import type { Book, Session } from "./scorebook.ts";
-import { tournamentEntryLabel, tournamentResult } from "./tournament.ts";
+import { tournamentEntryLabel, tournamentPoolDispositions, tournamentResult } from "./tournament.ts";
 
 export function sessionEmailRecap(book: Book, session: Session) {
   const number = book.sessions.findIndex((item) => item.id === session.id) + 1;
@@ -11,11 +11,19 @@ export function sessionEmailRecap(book: Book, session: Session) {
     `Session ${number} | ${session.date} | ${formatLabel(session)}`,
   ];
   if (session.club?.timed) lines.push("Timed games | " + gameRuleLabel(book.rules, session));
+  const dispositions = tournamentPoolDispositions(session);
   if (session.club?.draw === "tournament") {
     const { champion, runnerUp, bronze } = tournamentResult(session);
     if (champion) lines.push("Champion: " + tournamentEntryLabel(session, champion, names));
     if (runnerUp) lines.push("Runner-up: " + tournamentEntryLabel(session, runnerUp, names));
     if (bronze) lines.push("Bronze: " + tournamentEntryLabel(session, bronze, names));
+    let voids = 0, excluded = 0;
+    for (const status of dispositions.values()) {
+      if (status === "void") voids++;
+      else excluded++;
+    }
+    if (voids) lines.push(voids + (voids === 1 ? " unplayed game void" : " unplayed games void") + " after pool withdrawal.");
+    if (excluded) lines.push(excluded + (excluded === 1 ? " played final excluded" : " played finals excluded") + " from pool standings. Session points include all played finals.");
   }
   if (book.id === exampleId) lines.push("Fictional example season");
   lines.push(
@@ -36,7 +44,8 @@ export function sessionEmailRecap(book: Book, session: Session) {
     const court = session.courts > 1 ? ` (Court ${game.court})` : "";
     const a = pairLabel(session, game.a, names);
     const b = pairLabel(session, game.b, names);
-    lines.push(`Game ${i + 1}${court} · ${a} ${game.score[0]}–${game.score[1]} ${b}`);
+    const note = dispositions.get(game.id) === "excluded" ? " · Excluded from pool standings" : "";
+    lines.push(`Game ${i + 1}${court} · ${a} ${game.score[0]}–${game.score[1]} ${b}${note}`);
   });
   return {
     subject: `Hypha results | ${book.name} | ${session.date}`,

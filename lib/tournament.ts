@@ -44,6 +44,7 @@ export interface TournamentStage {
 export interface TournamentBracket {
   pools: string[][];
   poolLastRound: number;
+  withdrawn?: string[];
   seeds: string[];
   stages: TournamentStage[];
   seeding?: TournamentPoolRow[][];
@@ -123,6 +124,122 @@ export function openTournament(s: Session) {
   s.games.push(...games);
 }
 
+
+export type TournamentGameStatus = "eligible" | "excluded" | "void";
+
+function withdrawnPlayers(s: Session, withdrawn: ReadonlySet<string>) {
+  if (s.club?.play !== "fixed") return withdrawn;
+  return new Set(s.teams?.filter(t => withdrawn.has(t.id)).flatMap(t => t.pair));
+}
+
+export function tournamentWithdrawnPlayers(s: Session): Set<string> {
+  const ids = s.club?.bracket?.withdrawn;
+  return ids?.length ? new Set(withdrawnPlayers(s, new Set(ids))) : new Set();
+}
+
+function poolDisposition(game: Game, players: ReadonlySet<string>): TournamentGameStatus {
+  if (game.a.some(p => players.has(p)) || game.b.some(p => players.has(p))) {
+    return game.score ? "excluded" : "void";
+  }
+  return "eligible";
+}
+
+export function tournamentGameStatus(s: Session, game: Game): TournamentGameStatus {
+  const bracket = s.club?.bracket;
+  if (!bracket?.withdrawn?.length || game.round > bracket.poolLastRound) return "eligible";
+  return poolDisposition(game, withdrawnPlayers(s, new Set(bracket.withdrawn)));
+}
+
+export function tournamentPoolDispositions(s: Session) {
+  const map = new Map<string, "excluded" | "void">();
+  const bracket = s.club?.bracket;
+  if (!bracket?.withdrawn?.length) return map;
+  const players = withdrawnPlayers(s, new Set(bracket.withdrawn));
+  for (const game of s.games) {
+    if (game.round > bracket.poolLastRound) continue;
+    const status = poolDisposition(game, players);
+    if (status !== "eligible") map.set(game.id, status);
+  }
+  return map;
+}
+
+export function tournamentWithdrawalImpact(s: Session, entrant: unknown, withdrawn: unknown) {
+  const club = s.club, bracket = club?.bracket;
+  insist(club?.draw === "tournament" && club.tournament?.entry === "pools" && bracket &&
+    !bracket.stages.length && !s.submitted, "Pool withdrawals can change only before playoff publication.", 409);
+  insist(typeof entrant === "string" && typeof withdrawn === "boolean", "Choose an entrant and withdrawal status.");
+  const index = bracket.pools.findIndex(pool => pool.includes(entrant));
+  const side = sides(s).get(entrant);
+  insist(index >= 0 && side, "Choose an original entrant in this tournament pool.");
+  const before = new Set(bracket.withdrawn), after = new Set(before);
+  if (withdrawn) after.add(entrant);
+  else after.delete(entrant);
+  const wasOut = withdrawnPlayers(s, before), nowOut = withdrawnPlayers(s, after);
+  const affectedFinals: string[] = [], affectedPending: string[] = [], affectedLive: string[] = [];
+  const stillExcluded: string[] = [], stillVoid: string[] = [];
+  const resumed: Game[] = [], active: Game[] = [];
+  for (const game of s.games) {
+    if (game.round > bracket.poolLastRound) continue;
+    const next = poolDisposition(game, nowOut);
+    const live = !game.score && !!(game.started || game.live);
+    if (live && next === "eligible") active.push(game);
+    if (!side.some(id => game.a.includes(id) || game.b.includes(id))) continue;
+    if (next === poolDisposition(game, wasOut)) {
+      if (next === "void") stillVoid.push(game.id);
+      if (next === "excluded") stillExcluded.push(game.id);
+    } else if (game.score) {
+      affectedFinals.push(game.id);
+    } else {
+      affectedPending.push(game.id);
+      if (live) {
+        affectedLive.push(game.id);
+        if (next === "eligible") resumed.push(game);
+      }
+    }
+  }
+  let restoreBlock: string | null = null;
+  for (const game of resumed) {
+    const players = [...game.a, ...game.b];
+    const conflict = active.find(other => other !== game && (other.court === game.court ||
+      [...other.a, ...other.b].some(id => players.includes(id))));
+    if (conflict) {
+      if (resumed.includes(conflict)) {
+        restoreBlock = "Two suspended games would resume together on overlapping courts or players. " +
+          "Keep one opposing entrant withdrawn, restore this entrant and finish the first game before restoring the other opponent.";
+      } else {
+        restoreBlock = "Court " + conflict.court + " in wave " + conflict.round +
+          " has an active match that overlaps this entrant’s suspended game. Finish the active match before restoring the entrant.";
+      }
+      break;
+    }
+  }
+  return {
+    entrant, pool: index + 1, withdrawn,
+    activeEntrants: bracket.pools[index].filter(id => !after.has(id)).length,
+    requiredEntrants: club.tournament.qualifiers / bracket.pools.length,
+    affectedFinals, affectedPending, affectedLive, stillExcluded, stillVoid, restoreBlock,
+  };
+}
+
+export function setTournamentWithdrawal(s: Session, entrant: unknown, withdrawn: unknown): boolean {
+  const impact = tournamentWithdrawalImpact(s, entrant, withdrawn);
+  const bracket = s.club!.bracket!;
+  const next = new Set(bracket.withdrawn);
+  if (next.has(impact.entrant) === impact.withdrawn) return false;
+  insist(!impact.restoreBlock, impact.restoreBlock ?? "Review the suspended game before restoring this entrant.", 409);
+  const changedIds = new Set(impact.affectedPending);
+  const pending = s.games.filter(g => changedIds.has(g.id));
+  insist(pending.every(g => integer(g.editVersion ?? 0, 0, Number.MAX_SAFE_INTEGER - 1)),
+    "The fixture version cannot advance. Refresh and review the game.", 409);
+  // A draft saved on another device before a withdraw/restore cycle is stale.
+  for (const game of pending) game.editVersion = (game.editVersion ?? 0) + 1;
+  if (impact.withdrawn) next.add(impact.entrant);
+  else next.delete(impact.entrant);
+  if (next.size) bracket.withdrawn = bracket.pools.flat().filter(id => next.has(id));
+  else delete bracket.withdrawn;
+  return true;
+}
+
 function validFinal(game: Game) {
   if ("voided" in game && game.voided === true) return null;
   const score = game.score;
@@ -137,7 +254,8 @@ function poolOrder(a: TournamentPoolRow, b: TournamentPoolRow) {
 
 function poolResults(s: Session) {
   const bracket = s.club?.bracket;
-  const rows = (bracket?.pools ?? []).map(pool => pool.map((id): TournamentPoolRow => ({
+  const withdrawn = new Set(bracket?.withdrawn);
+  const rows = (bracket?.pools ?? []).map(pool => pool.filter(id => !withdrawn.has(id)).map((id): TournamentPoolRow => ({
     id, rank: 1, played: 0, wins: 0, losses: 0, pointsFor: 0, pointsAgainst: 0,
     headWins: 0, difference: 0, headDifference: 0,
   })));
@@ -147,7 +265,8 @@ function poolResults(s: Session) {
   const sideId = new Map([...sides(s)].map(([id, side]) => [sideKey(side), id]));
   const finals: { a: TournamentPoolRow; b: TournamentPoolRow; score: Score }[] = [];
   const seen = new Set<string>();
-  const games = bracket ? s.games.filter(g => g.round <= bracket.poolLastRound) : [];
+  const statuses = tournamentPoolDispositions(s);
+  const games = bracket ? s.games.filter(g => g.round <= bracket.poolLastRound && !statuses.has(g.id)) : [];
   for (const game of games) {
     const score = validFinal(game);
     if (!score) continue;
@@ -180,11 +299,22 @@ function poolResults(s: Session) {
       row.rank = i && poolOrder(pool[i - 1], row) === 0 ? pool[i - 1].rank : i + 1;
     });
   }
-  return { rows, complete: expected > 0 && games.length === expected && finals.length === expected };
+  const perPool = rows.length ? (s.club?.tournament?.qualifiers ?? 0) / rows.length : 0;
+  const shortages = rows.flatMap((pool, i) => pool.length < perPool
+    ? [{ pool: i + 1, active: pool.length, required: perPool }] : []);
+  let excluded = 0, voided = 0;
+  for (const status of statuses.values()) {
+    if (status === "excluded") excluded++;
+    else voided++;
+  }
+  const progress = { counted: finals.length, required: expected, excluded, voided, shortages };
+  return { rows, progress, complete: !shortages.length && expected > 0 &&
+    games.length === expected && finals.length === expected };
 }
 
 export const tournamentStandings = (s: Session) => poolResults(s).rows;
 export const tournamentPoolComplete = (s: Session) => poolResults(s).complete;
+export const tournamentPoolProgress = (s: Session) => poolResults(s).progress;
 
 function tiedPlaces(rows: TournamentPoolRow[][], qualifiers: number) {
   const ties: { pool: number; rank: number; ids: string[] }[] = [];
@@ -277,7 +407,14 @@ export function nextTournament(s: Session, expectedStage: unknown, orders: unkno
   const current = bracket.stages.at(-1);
   if (!current && options.entry === "pools") {
     const result = poolResults(s);
-    insist(result.complete, "Save a final for every distinct match in every pool first.", 409);
+    const shortage = result.progress.shortages[0];
+    if (shortage) {
+      const poolName = String.fromCharCode(64 + shortage.pool);
+      insist(false, "Pool " + poolName + " has " + shortage.active + " active " +
+        (shortage.active === 1 ? "entrant" : "entrants") + " and needs " + shortage.required +
+        " to qualify. Restore enough entrants in this pool to publish the playoffs.", 409);
+    }
+    insist(result.complete, "Save a final for every distinct match between active entrants in every pool first.", 409);
     seeding = orderQualifiers(result.rows, options.qualifiers, orders);
     pairs = seededOpening(seeding.seeds);
   } else {
@@ -339,6 +476,10 @@ export function tournamentPhase(s: Session): "seeding" | "pools" | "knockout" | 
 }
 
 export function guardTournamentScore(s: Session, game: Game, next: Score | null) {
+  const status = tournamentGameStatus(s, game);
+  insist(status !== "void", "This pool game is void after a withdrawal. Restore its entrants before scoring it.", 409);
+  insist(status !== "excluded" || next !== null,
+    "This saved result is excluded from qualification. Restore its entrants before clearing the result.", 409);
   const stages = s.club?.bracket?.stages;
   if (!stages || stages.length < 2 || !game.score) return;
   const issued = stages.slice(0, -1).some(stage => stage.slots.some(slot => slot.gameId === game.id));
