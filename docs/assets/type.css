@@ -1,0 +1,9 @@
+/* Shared typography for the player guide and courtside landing page. */
+:root {
+  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
+}
+
+button, input, select, optgroup, textarea, kbd, code, pre, samp {
+  font-family: inherit;
+}
