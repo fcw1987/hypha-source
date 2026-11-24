@@ -42,7 +42,7 @@ nav a, .next-chapter, footer #share { font: 600 .8rem/1.2 var(--font-sans); text
 h1, h2 { width: fit-content; color: var(--paper); font: 600 clamp(4.5rem,7.8vw,8.8rem)/.96 var(--font-sans); letter-spacing: -.06em; }
 h1 span, h1 em, h2 span, h2 em { display: block; }
 h1 em, h2 em { color: var(--secondary-type); font-style: normal; }
-.scene-copy > p:not(.friend) { max-width: 31rem; text-wrap: pretty; color: #e4e4dd; font-size: clamp(1.05rem,1.38vw,1.37rem); line-height: 1.44; letter-spacing: -.018em; }
+.scene-copy > p { max-width: 31rem; text-wrap: pretty; color: #e4e4dd; font-size: clamp(1.05rem,1.38vw,1.37rem); line-height: 1.44; letter-spacing: -.018em; }
 .lead, .season-copy { padding-top: clamp(1.35rem,2.3vw,2.5rem); }
 .actions { display: flex; flex-wrap: wrap; gap: .45rem 1.5rem; align-items: center; margin: 1.35rem 0 0; }
 .primary { display: inline-flex; align-items: center; gap: .95rem; min-height: 47px; padding: .7rem 1.35rem; border-radius: .27rem; color: #26221f; background: #eee7dc; font-weight: 650; text-decoration: none; }
@@ -50,7 +50,6 @@ h1 em, h2 em { color: var(--secondary-type); font-style: normal; }
 .primary:hover { background: #fffaf2; }
 .secondary { min-height: 44px; display: inline-flex; align-items: center; font-size: .93rem; font-weight: 700; text-underline-offset: .28em; text-decoration-color: #9e978e; }
 .secondary:hover { text-decoration-color: var(--paper); text-decoration-thickness: 2px; }
-.friend { margin-top: .85rem; max-width: 29rem; color: var(--muted); font-size: .82rem; }
 .tv-outer, .duo-outer { align-self: center; justify-self: center; grid-area: 1 / 2 / 5 / 3; width: min(59vw,88vh,930px); width: min(59vw,88svh,930px); }
 .tv-object, .duo-object { position: relative; width: 100%; aspect-ratio: 1; transform-origin: 50% 60%; }
 .sculpture { display: block; width: 100%; height: 100%; object-fit: contain; }
@@ -162,10 +161,9 @@ footer { padding: 1rem var(--edge) 1.45rem; border-top: 1px solid #383934; } foo
   .tv-outer,.duo-outer,.record { grid-area: 2 / 1; }
   .tv-outer,.duo-outer { width: min(104vw,53svh,510px); margin: -.4rem -4vw -.7rem; }
   .lead,.formats,.season-copy { grid-area: 3 / 1; padding: 0; }
-  .scene-copy > p:not(.friend) { max-width: 32rem; font-size: clamp(1rem,3.95vw,1.2rem); line-height: 1.39; }
+  .scene-copy > p { max-width: 32rem; font-size: clamp(1rem,3.95vw,1.2rem); line-height: 1.39; }
   .actions { margin-top: .92rem; gap: .3rem 1.2rem; }
   .primary { min-height: 45px; padding: .67rem 1.18rem; }
-  .friend { font-size: .74rem; margin-top: .58rem; }
   .next-chapter { bottom: .35rem; font-size: .68rem; }
   .next-chapter span { width: 1.35rem; height: 1.35rem; }
   .draw-heading h2 { font-size: clamp(2.45rem,10.55vw,4.25rem); }
