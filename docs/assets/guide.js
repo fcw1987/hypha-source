@@ -25,7 +25,6 @@
     document.documentElement.dataset.theme = value;
     const other = value === 'light' ? 'Dark' : 'Light';
     get('theme-text').textContent = other + ' mode';
-    themeButton.firstElementChild.textContent = value === 'light' ? '☾' : '☼';
     themeButton.setAttribute('aria-label','Switch to ' + other.toLowerCase() + ' mode');
     get('theme-color').content = value === 'light' ? '#ffffff' : '#000000';
     if (save) {
@@ -84,7 +83,7 @@
     const id = hashId();
     const destination = get(id);
     const topic = id === 'guide' ? active || overview : destination?.closest('section[data-topic]') || overview;
-    const heading = topic.querySelector(':scope > h1,:scope > h2');
+    const heading = topic.querySelector('h1,h2');
     if (active !== topic) {
       topics.forEach(t => { t.hidden = t !== topic; });
       for (const link of topicLinks) {
@@ -150,7 +149,7 @@
   }
   for (const topic of topics) {
     const title = topic.dataset.label;
-    const first = topic.querySelector(':scope > h1,:scope > h2');
+    const first = topic.querySelector('h1,h2');
     for (const node of topic.querySelectorAll('h1[id],h2[id],h3[id],dt[id],summary[id],caption[id],strong[id]')) {
       const name = plain(node.textContent).replace(/\.$/,'');
       const passage = plain(neighbors(node));
