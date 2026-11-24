@@ -19,18 +19,6 @@
   const mesh = stage.querySelector('.partner-mesh');
   const flight = byId('flight'), poster = flight.querySelector('img');
   const shell = flight.querySelector('canvas');
-  const record = byId('record'), rig = record.querySelector('.rig'), season = byId('season');
-  const digits = [];
-  record.querySelectorAll('[data-numbers]').forEach(bank => {
-    const [from, to] = bank.dataset.numbers.split(',');
-    bank.querySelectorAll('b').forEach((cell,i) => {
-      const face = document.createElement('i');
-      face.textContent = from[i];
-      cell.replaceChildren(face);
-      digits.push({face, from:from[i], to:to[i]});
-    });
-  });
-
   // Five lacquer drops travel out from the same point where the palms meet.
   const droplets = [
     [-.83,-.40, .017,'#ffacdc','#ff378e','#8a145e'],
@@ -67,8 +55,7 @@
     geometry = {
       w: document.documentElement.clientWidth, h, diameter, frame: diameter*2.6,
       startX: tv.left+launch.offsetLeft, startY: tv.top+y+launch.offsetTop,
-      endX: hands.left, endY, endScroll, castY:cast.top+y, castSize:cast.width,
-      seasonY: season.getBoundingClientRect().top+y
+      endX: hands.left, endY, endScroll, castY:cast.top+y, castSize:cast.width
     };
     flight.style.width = geometry.frame+'px';
     ball?.resize(geometry.frame);
@@ -78,23 +65,13 @@
     dirty = false;
   }
 
-  function setScore(progress) {
-    digits.forEach(({face,from,to},i) => {
-      const turn = clamp((progress-.26-i*.045)/.23);
-      const value = turn < .5 ? from : to;
-      if (face.textContent !== value) face.textContent = value;
-      face.style.transform = 'perspective(200px) rotateX('+((turn<.5?-turn:1-turn)*170).toFixed(1)+'deg)';
-    });
-  }
-
   function setRestingComposition() {
     document.body.classList.remove('with-flight');
     flight.hidden = true;
     stage.hidden = true;
     partners.classList.remove('is-performing');
-    television.style.transform = rig.style.transform = '';
+    television.style.transform = '';
     droplets.forEach(({dot}) => { dot.style.opacity='0'; });
-    setScore(1);
     lastBallPose = lastPlayersPose = null;
   }
 
@@ -206,9 +183,6 @@
     television.style.transform='perspective(1100px) rotateY('+(-19*depart).toFixed(2)+'deg) rotateZ('+(-8*depart).toFixed(2)+'deg) scale('+(1+.075*depart).toFixed(3)+')';
     poseBall(progress,g,y);
     posePartners(progress,g,y);
-    const seasonProgress=clamp((y+g.h*.90-g.seasonY)/(g.h*.83));
-    rig.style.transform='perspective(1000px) rotateY('+(14*(1-seasonProgress)).toFixed(2)+'deg) rotateZ('+(-10+7*seasonProgress).toFixed(2)+'deg)';
-    setScore(seasonProgress);
     if (y!==scrollPose) queue();
   }
 
@@ -228,7 +202,7 @@
   window.addEventListener('resize',resized,{passive:true});
   if ('ResizeObserver' in window) {
     const observer=new ResizeObserver(resized);
-    [byId('rally'),byId('draw'),byId('sideline'),season].forEach(el=>observer.observe(el));
+    [byId('rally'),byId('draw')].forEach(el=>observer.observe(el));
   }
   if (document.fonts) document.fonts.ready.then(resized);
   if (!moves()) setRestingComposition();
